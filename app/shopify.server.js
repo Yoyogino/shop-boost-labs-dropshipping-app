@@ -43,10 +43,11 @@ const shopify = shopifyApp({
       trialDays: 14,
     },
   },
-  future: {
-    unstable_newEmbeddedAuthStrategy: true,
-    removeRest: true,
-  },
+future: {
+  unstable_newEmbeddedAuthStrategy: true,
+  removeRest: true,
+  expiringOfflineAccessTokens: true,
+},
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? {customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN]}
     : {}),
