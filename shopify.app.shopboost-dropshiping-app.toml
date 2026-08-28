@@ -2,12 +2,11 @@
 
 client_id = "331bfe9fed8ecbac38ec0b0946cd5938"
 name = "ShopBoost Dropshiping app"
-application_url = "https://shopify.dev/apps/default-app-home"
+application_url = "https://shop-boost-labs-dropshipping-app.onrender.com"
 embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
-include_config_on_deploy = true
 
 [webhooks]
 api_version = "2026-10"
@@ -25,7 +24,11 @@ api_version = "2026-10"
 scopes = "read_orders,read_products,write_products"
 
 [auth]
-redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+redirect_urls = [
+  "https://shop-boost-labs-dropshipping-app.onrender.com/auth/callback",
+  "https://shop-boost-labs-dropshipping-app.onrender.com/auth/shopify/callback",
+  "https://shop-boost-labs-dropshipping-app.onrender.com/api/auth/callback"
+]
 
 [pos]
 embedded = false
