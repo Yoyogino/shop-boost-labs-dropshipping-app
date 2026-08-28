@@ -15,13 +15,29 @@
 import {authenticate} from '../shopify.server';
 import prisma from '../db.server';
 import {createOrder} from '../suppliers/cj-dropshipping.server';
+import {chargeForImportedProducts} from '../billing/billing.server';
 
 export const action = async ({request}) => {
-  const {shop, topic, payload} = await authenticate.webhook(request);
+  const {shop, topic, payload, admin} = await authenticate.webhook(request);
   console.log(`Received ${topic} webhook for ${shop}`);
 
   const order = payload;
   const shopifyOrderId = String(order.id);
+
+  // Shop Boost Labs' own 5% usage fee -- runs on every order regardless of
+  // whether it also gets auto-fulfilled through CJ below (those are two
+  // separate things: this is billing for the imported product itself, CJ
+  // fulfillment only applies when that product is also supplier-linked).
+  // Isolated in its own try/catch so a billing hiccup never blocks or
+  // breaks CJ order fulfillment, which matters more to the merchant.
+  try {
+    const billingResult = await chargeForImportedProducts(admin, shop, order);
+    if (billingResult.status === 'charged') {
+      console.log(`Charged $${billingResult.amountCharged} usage fee for order ${shopifyOrderId}`);
+    }
+  } catch (error) {
+    console.log('Usage billing error (order still processed normally):', error.message);
+  }
 
   // Already handled (webhook retried, or fired twice) -- don't double-place.
   const existing = await prisma.supplierOrder.findUnique({

@@ -86,6 +86,29 @@ model SupplierLink {
   @@unique([shop, shopifyVariantId])
 }
 
+// One row per Shopify order that Shop Boost Labs actually charged its own
+// 5% usage fee on (separate from CJ -- this is Shop Boost Labs' own
+// revenue, not what the merchant pays their supplier). Unlike SupplierOrder,
+// this uses create() as an atomic claim rather than upsert: once a row
+// exists for an order, billing must NEVER be attempted again for it, even
+// on a retry -- a duplicate webhook delivery must not double-charge real
+// money. See app/billing/billing.server.js.
+model UsageCharge {
+  id                   String   @id @default(cuid())
+  shop                 String
+  shopifyOrderId       String
+  importedRevenue      Float    // portion of the order made of imported products, before the 5% cut
+  amountCharged        Float    // the actual 5% charged (USD)
+  shopifyUsageRecordId String?  // GID of the AppUsageRecord, once created
+  status               String   // "pending", "charged", "failed", "no_active_subscription"
+  errorMessage         String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([shop])
+  @@unique([shop, shopifyOrderId])
+}
+
 // One row per Shopify order that triggered (or attempted) an automatic
 // supplier order. Prevents double-placing if the webhook ever fires twice,
 // and gives a place to show the merchant real fulfillment status.

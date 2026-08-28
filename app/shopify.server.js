@@ -2,10 +2,20 @@ import '@shopify/shopify-app-remix/adapters/node';
 import {
   ApiVersion,
   AppDistribution,
+  BillingInterval,
   shopifyApp,
 } from '@shopify/shopify-app-remix/server';
 import {PrismaSessionStorage} from '@shopify/shopify-app-session-storage-prisma';
 import prisma from './db.server';
+
+// Shop Boost Labs' own revenue model: usage-based billing, 5% of the value
+// of any order containing a product imported through this app. This is
+// separate from CJ Dropshipping payment entirely -- merchants pay their own
+// CJ balance for supplier orders (see app/suppliers/cj-dropshipping.server.js);
+// this plan is what Shop Boost Labs itself earns. $100/mo capped amount and
+// a 14-day free trial, decided 2026-08-28. See app/billing/billing.server.js
+// for where usage records actually get created (from the orders/create webhook).
+export const USAGE_PLAN = 'Shop Boost Labs Usage Plan';
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -16,6 +26,19 @@ const shopify = shopifyApp({
   authPathPrefix: '/auth',
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
+  billing: {
+    [USAGE_PLAN]: {
+      lineItems: [
+        {
+          amount: 100,
+          currencyCode: 'USD',
+          interval: BillingInterval.Usage,
+          usageTerms: '5% of the value of each order containing a product imported through this app',
+        },
+      ],
+      trialDays: 14,
+    },
+  },
   future: {
     unstable_newEmbeddedAuthStrategy: true,
     removeRest: true,
