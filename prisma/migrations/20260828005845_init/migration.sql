@@ -1,11 +1,11 @@
 -- CreateTable
 CREATE TABLE "Session" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "shop" TEXT NOT NULL,
     "state" TEXT NOT NULL,
     "isOnline" BOOLEAN NOT NULL DEFAULT false,
     "scope" TEXT,
-    "expires" DATETIME,
+    "expires" TIMESTAMP(3),
     "accessToken" TEXT NOT NULL,
     "userId" BIGINT,
     "firstName" TEXT,
@@ -14,36 +14,42 @@ CREATE TABLE "Session" (
     "accountOwner" BOOLEAN NOT NULL DEFAULT false,
     "locale" TEXT,
     "collaborator" BOOLEAN DEFAULT false,
-    "emailVerified" BOOLEAN DEFAULT false
+    "emailVerified" BOOLEAN DEFAULT false,
+
+    CONSTRAINT "Session_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "ImportedProduct" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "shop" TEXT NOT NULL,
     "shopifyProductId" TEXT NOT NULL,
     "sourceType" TEXT NOT NULL,
     "sourceUrl" TEXT,
-    "importedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "importedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ImportedProduct_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "SupplierCredential" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "shop" TEXT NOT NULL,
     "provider" TEXT NOT NULL,
     "apiKey" TEXT NOT NULL,
     "accessToken" TEXT,
-    "accessTokenExpiresAt" DATETIME,
+    "accessTokenExpiresAt" TIMESTAMP(3),
     "refreshToken" TEXT,
-    "refreshTokenExpiresAt" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "refreshTokenExpiresAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "SupplierCredential_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "SupplierLink" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "shop" TEXT NOT NULL,
     "shopifyProductId" TEXT NOT NULL,
     "shopifyVariantId" TEXT NOT NULL,
@@ -51,23 +57,27 @@ CREATE TABLE "SupplierLink" (
     "supplierProductId" TEXT NOT NULL,
     "supplierVariantId" TEXT NOT NULL,
     "supplierSku" TEXT,
-    "lastSyncedPrice" REAL,
+    "lastSyncedPrice" DOUBLE PRECISION,
     "lastSyncedStock" INTEGER,
-    "lastSyncedAt" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "lastSyncedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SupplierLink_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "SupplierOrder" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "shop" TEXT NOT NULL,
     "shopifyOrderId" TEXT NOT NULL,
     "provider" TEXT NOT NULL,
     "supplierOrderId" TEXT,
     "status" TEXT NOT NULL,
     "errorMessage" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "SupplierOrder_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
