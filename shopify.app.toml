@@ -1,0 +1,43 @@
+# This file stores configuration for your Shopify app.
+# Learn more: https://shopify.dev/docs/apps/tools/cli/configuration
+
+name = "Shop Boost Labs Dropshipping App"
+client_id = "REPLACE_AFTER_shopify_app_config_link"
+application_url = "https://REPLACE_WITH_YOUR_TUNNEL_OR_DEPLOY_URL"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+dev_store_url = "clearhaven8.myshopify.com"
+
+[access_scopes]
+# write_products: create imported products in the merchant's catalog
+# read_products: check for existing/duplicate products
+# read_orders: required to subscribe to the orders/create webhook, which
+#   is what triggers automatic supplier fulfillment -- this is the core
+#   scope the whole "no third-party app needed" feature depends on
+scopes = "write_products,read_products,read_orders"
+
+[auth]
+redirect_urls = [
+  "https://REPLACE_WITH_YOUR_TUNNEL_OR_DEPLOY_URL/auth/callback",
+  "https://REPLACE_WITH_YOUR_TUNNEL_OR_DEPLOY_URL/auth/shopify/callback",
+  "https://REPLACE_WITH_YOUR_TUNNEL_OR_DEPLOY_URL/api/auth/callback"
+]
+
+[webhooks]
+api_version = "2025-01"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  # This is the trigger for automatic supplier fulfillment -- every new
+  # order gets checked against SupplierLink to see if it needs a CJ
+  # Dropshipping order placed. See app/routes/webhooks.orders.create.jsx.
+  [[webhooks.subscriptions]]
+  topics = [ "orders/create" ]
+  uri = "/webhooks/orders/create"
+
+[pos]
+embedded = false

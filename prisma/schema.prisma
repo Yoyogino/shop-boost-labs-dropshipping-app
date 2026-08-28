@@ -1,0 +1,104 @@
+// This is the database that holds one session per installed merchant.
+// SQLite is fine to start; swap the provider for Postgres/MySQL once
+// you have real merchants and want a hosted, shared database.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.sqlite"
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+}
+
+// One row per product a merchant has imported through the app.
+// This is what makes "5% of sales from imported products" possible
+// later — you can tell which orders touched an imported product.
+model ImportedProduct {
+  id               String   @id @default(cuid())
+  shop             String
+  shopifyProductId String
+  sourceType       String   // "csv", "manual", or a named supplier integration
+  sourceUrl        String?
+  importedAt       DateTime @default(now())
+
+  @@index([shop])
+  @@index([shopifyProductId])
+}
+
+// One CJ Dropshipping account link per merchant. Each shop brings its own
+// API key from its own CJ Dropshipping account, so CJ orders are paid for
+// out of THAT merchant's own CJ balance -- Shop Boost Labs never touches
+// or fronts supplier payment. This mirrors how DSers links a merchant's
+// own AliExpress account rather than centralizing payment.
+model SupplierCredential {
+  id                     String    @id @default(cuid())
+  shop                   String
+  provider               String    // "cj-dropshipping" for now; more suppliers later
+  apiKey                 String    // merchant's own CJ Dropshipping API key
+  accessToken            String?
+  accessTokenExpiresAt   DateTime?
+  refreshToken           String?
+  refreshTokenExpiresAt  DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@unique([shop, provider])
+}
+
+// When an imported product is actually linked to a live CJ Dropshipping
+// product (as opposed to a plain CSV import with no supplier behind it),
+// this is what the order-webhook checks to know it needs to auto-fulfill.
+model SupplierLink {
+  id                 String   @id @default(cuid())
+  shop               String
+  shopifyProductId   String
+  shopifyVariantId   String
+  provider           String   // "cj-dropshipping"
+  supplierProductId  String   // CJ "pid"
+  supplierVariantId  String   // CJ "vid"
+  supplierSku        String?
+  lastSyncedPrice    Float?
+  lastSyncedStock    Int?
+  lastSyncedAt       DateTime?
+  createdAt          DateTime @default(now())
+
+  @@index([shop])
+  @@unique([shop, shopifyVariantId])
+}
+
+// One row per Shopify order that triggered (or attempted) an automatic
+// supplier order. Prevents double-placing if the webhook ever fires twice,
+// and gives a place to show the merchant real fulfillment status.
+model SupplierOrder {
+  id               String   @id @default(cuid())
+  shop             String
+  shopifyOrderId   String
+  provider         String   // "cj-dropshipping"
+  supplierOrderId  String?  // CJ's order ID once placed successfully
+  status           String   // "pending", "placed", "failed"
+  errorMessage     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([shop])
+  @@unique([shop, shopifyOrderId, provider])
+}

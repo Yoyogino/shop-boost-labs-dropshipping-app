@@ -1,0 +1,39 @@
+{
+  "name": "shop-boost-labs-dropshipping-app",
+  "private": true,
+  "scripts": {
+    "build": "remix vite:build",
+    "dev": "shopify app dev",
+    "config:link": "shopify app config link",
+    "generate": "shopify app generate",
+    "deploy": "shopify app deploy",
+    "setup": "prisma generate && prisma migrate deploy",
+    "start": "remix-serve ./build/server/index.js",
+    "docker-start": "npm run setup && npm run start"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.20.0",
+    "@remix-run/dev": "^2.15.0",
+    "@remix-run/node": "^2.15.0",
+    "@remix-run/react": "^2.15.0",
+    "@remix-run/serve": "^2.15.0",
+    "@shopify/app-bridge-react": "^4.1.6",
+    "@shopify/polaris": "^13.9.0",
+    "@shopify/shopify-app-remix": "^3.7.0",
+    "@shopify/shopify-app-session-storage-prisma": "^5.1.5",
+    "isbot": "^5.1.17",
+    "prisma": "^5.20.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "engines": {
+    "node": ">=18.20"
+  },
+  "allowScripts": {
+    "@prisma/client@5.22.0": true,
+    "prisma@5.22.0": true,
+    "esbuild@0.17.6": true,
+    "esbuild@0.21.5": true,
+    "@prisma/engines@5.22.0": true
+  }
+}

@@ -1,0 +1,11 @@
+# Tells Shopify CLI how to actually start this app's dev server. This file
+# was missing from the original scaffold entirely -- without it, `shopify
+# app dev` has no server to point the embedded app UI at, which is why it
+# was falling back to Shopify's generic placeholder ("Find this app in the
+# pages where you work") no matter what else was configured correctly.
+# Added 2026-08-27 after diagnosing that exact symptom.
+roles = ["frontend", "backend"]
+
+[commands]
+dev = "npm exec remix vite:dev"
+build = "npm run build"

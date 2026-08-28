@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Secrets -- .env holds SHOPIFY_API_SECRET and other real credentials.
+# Never commit this file.
+.env
+.env.*
+!.env.example
+
+# Local database -- prisma/dev.sqlite is the real local dev database and
+# currently contains a real CJ Dropshipping API key in plain text (stored
+# via the Supplier settings page). Never commit this file.
+prisma/dev.sqlite
+prisma/dev.sqlite-journal
+*.sqlite
+*.sqlite-journal
+
+# Build output
+build/
+.cache/
+dist/
+
+# Shopify CLI local build artifacts (the CLI already manages its own
+# .shopify/.gitignore for these -- this is a fallback in case that ever
+# changes or gets removed)
+.shopify/dev-bundle/
+.shopify/dev-bundle.br
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+npm-debug.log*
