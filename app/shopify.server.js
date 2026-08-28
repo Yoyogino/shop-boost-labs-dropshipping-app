@@ -26,16 +26,20 @@ const shopify = shopifyApp({
   authPathPrefix: '/auth',
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
+  // NOTE: this app doesn't opt into the `lineItems`-array billing config
+  // shape (that needs a `future.lineItemBilling`/`v10_lineItemBilling` flag
+  // we don't set below), so the plan is defined flat here, and the usage
+  // terms field is called `usageTerms` -- confirmed against the installed
+  // @shopify/shopify-api package's own type definitions after the first
+  // deploy attempt crashed with a malformed AppSubscriptionCreate request
+  // (had wrongly used the array shape with a `terms` field, which only
+  // applies to the newer format).
   billing: {
     [USAGE_PLAN]: {
-      lineItems: [
-        {
-          amount: 100,
-          currencyCode: 'USD',
-          interval: BillingInterval.Usage,
-          usageTerms: '5% of the value of each order containing a product imported through this app',
-        },
-      ],
+      amount: 100,
+      currencyCode: 'USD',
+      interval: BillingInterval.Usage,
+      usageTerms: '5% of the value of each order containing a product imported through this app',
       trialDays: 14,
     },
   },
