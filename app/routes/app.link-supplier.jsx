@@ -57,6 +57,26 @@ export const loader = async ({request}) => {
     where: {shop_provider: {shop: session.shop, provider: 'cj-dropshipping'}},
   });
 
+  // TEMPORARY DIAGNOSTIC (2026-08-28), take 2: is Shopify blocking ALL
+  // Admin GraphQL calls for this app right now, or just this specific
+  // products query? Runs a trivial shop{name} probe (needs no real scope)
+  // alongside the real query. Doesn't touch/consume the real query's
+  // response this time (that broke things last attempt) and never blocks
+  // page rendering -- just logs. Remove once the underlying cause is found.
+  try {
+    const probeResponse = await admin.graphql(`#graphql
+      query { shop { name } }
+    `);
+    const probeData = await probeResponse.json();
+    console.log('[link-supplier] PROBE shop{name} SUCCEEDED:', JSON.stringify(probeData));
+  } catch (probeError) {
+    const status = probeError instanceof Response ? probeError.status : 'n/a';
+    console.error('[link-supplier] PROBE shop{name} FAILED, status:', status);
+    if (probeError instanceof Response) {
+      console.error('[link-supplier] PROBE body:', await probeError.clone().text());
+    }
+  }
+
   const productsResponse = await admin.graphql(PRODUCTS_QUERY);
   const productsData = await productsResponse.json();
   const products = productsData.data.products.edges.map(({node}) => ({
