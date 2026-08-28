@@ -57,23 +57,7 @@ export const loader = async ({request}) => {
     where: {shop_provider: {shop: session.shop, provider: 'cj-dropshipping'}},
   });
 
-  // TEMPORARY DIAGNOSTIC (2026-08-28): this route was 403ing with no stack
-  // trace -- admin.graphql() throws Shopify's rejection as a bare Response,
-  // which Remix passes through silently instead of logging it. Wrapping in
-  // try/catch here so the real reason (from Shopify's response body) shows
-  // up in the server logs instead of just a bare 403. Remove once the
-  // underlying cause is confirmed and fixed.
-  let productsResponse;
-  try {
-    productsResponse = await admin.graphql(PRODUCTS_QUERY);
-  } catch (error) {
-    console.error('[link-supplier] admin.graphql(PRODUCTS_QUERY) threw:', error);
-    if (error instanceof Response) {
-      const body = await error.text();
-      console.error('[link-supplier] Response status:', error.status, 'body:', body);
-    }
-    throw error;
-  }
+  const productsResponse = await admin.graphql(PRODUCTS_QUERY);
   const productsData = await productsResponse.json();
   const products = productsData.data.products.edges.map(({node}) => ({
     id: node.id,
