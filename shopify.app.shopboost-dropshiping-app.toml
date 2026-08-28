@@ -7,6 +7,7 @@ embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
+include_config_on_deploy = true
 
 [webhooks]
 api_version = "2026-10"
@@ -18,6 +19,21 @@ api_version = "2026-10"
   [[webhooks.subscriptions]]
   uri = "/webhooks/orders/create"
   topics = [ "orders/create" ]
+
+  # Mandatory GDPR compliance webhooks, added 2026-08-28 -- required before
+  # App Store review. See app/routes/webhooks.customers.data_request.jsx,
+  # webhooks.customers.redact.jsx, and webhooks.shop.redact.jsx.
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/data_request"
+  topics = [ "customers/data_request" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/redact"
+  topics = [ "customers/redact" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/shop/redact"
+  topics = [ "shop/redact" ]
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
