@@ -7,7 +7,6 @@ embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
-include_config_on_deploy = true
 
 [webhooks]
 api_version = "2026-10"
@@ -21,19 +20,16 @@ api_version = "2026-10"
   topics = [ "orders/create" ]
 
   # Mandatory GDPR compliance webhooks, added 2026-08-28 -- required before
-  # App Store review. See app/routes/webhooks.customers.data_request.jsx,
-  # webhooks.customers.redact.jsx, and webhooks.shop.redact.jsx.
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/customers/data_request"
-  topics = [ "customers/data_request" ]
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/customers/redact"
-  topics = [ "customers/redact" ]
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/shop/redact"
-  topics = [ "shop/redact" ]
+  # App Store review. Corrected 2026-08-28: these are NOT regular
+  # [[webhooks.subscriptions]] topics -- `shopify app deploy` rejected
+  # "customers/data_request" etc. as invalid topics. Compliance webhooks use
+  # their own dedicated config block with full absolute URLs instead. See
+  # app/routes/webhooks.customers.data_request.jsx, webhooks.customers.redact.jsx,
+  # and webhooks.shop.redact.jsx for the handlers.
+  [webhooks.privacy_compliance]
+  customer_data_request_url = "https://shop-boost-labs-dropshipping-app.onrender.com/webhooks/customers/data_request"
+  customer_deletion_url = "https://shop-boost-labs-dropshipping-app.onrender.com/webhooks/customers/redact"
+  shop_deletion_url = "https://shop-boost-labs-dropshipping-app.onrender.com/webhooks/shop/redact"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes

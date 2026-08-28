@@ -40,18 +40,16 @@ api_version = "2025-01"
   uri = "/webhooks/orders/create"
 
   # Mandatory GDPR compliance webhooks, added 2026-08-28 -- required before
-  # App Store review.
-  [[webhooks.subscriptions]]
-  topics = [ "customers/data_request" ]
-  uri = "/webhooks/customers/data_request"
-
-  [[webhooks.subscriptions]]
-  topics = [ "customers/redact" ]
-  uri = "/webhooks/customers/redact"
-
-  [[webhooks.subscriptions]]
-  topics = [ "shop/redact" ]
-  uri = "/webhooks/shop/redact"
+  # App Store review. Corrected 2026-08-28: these use their own dedicated
+  # config block with full absolute URLs, not [[webhooks.subscriptions]]
+  # topics -- `shopify app deploy` rejects "customers/data_request" etc. as
+  # invalid subscription topics. Replace the REPLACE_WITH_YOUR_TUNNEL_OR_DEPLOY_URL
+  # placeholder below if this template file is ever activated (this file is
+  # not the CLI's active config -- see shopify.app.shopboost-dropshiping-app.toml).
+  [webhooks.privacy_compliance]
+  customer_data_request_url = "https://REPLACE_WITH_YOUR_TUNNEL_OR_DEPLOY_URL/webhooks/customers/data_request"
+  customer_deletion_url = "https://REPLACE_WITH_YOUR_TUNNEL_OR_DEPLOY_URL/webhooks/customers/redact"
+  shop_deletion_url = "https://REPLACE_WITH_YOUR_TUNNEL_OR_DEPLOY_URL/webhooks/shop/redact"
 
 [pos]
 embedded = false
