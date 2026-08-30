@@ -33,6 +33,7 @@ import {
 import {authenticate} from '../shopify.server';
 import prisma from '../db.server';
 import {searchProducts, getProductDetail} from '../suppliers/cj-dropshipping.server';
+import {createShopifyProduct} from '../shopify-products.server';
 
 const PRODUCTS_QUERY = `#graphql
   query MerchantProducts {
@@ -79,7 +80,7 @@ export const loader = async ({request}) => {
 };
 
 export const action = async ({request}) => {
-  const {session} = await authenticate.admin(request);
+  const {admin, session} = await authenticate.admin(request);
   const formData = await request.formData();
   const intent = formData.get('intent');
 
@@ -103,6 +104,69 @@ export const action = async ({request}) => {
     } catch (error) {
       return json({intent, error: error.message}, {status: 400});
     }
+  }
+
+  // "One-click import": creates the Shopify product directly from the CJ
+  // product/variant data already shown in the search UI (no manual CSV
+  // step, no need to already have a matching Shopify product to link
+  // against) and creates the SupplierLink in the same request, so the
+  // product is immediately ready for auto-fulfillment.
+  if (intent === 'import') {
+    const title = formData.get('title');
+    const price = formData.get('price');
+    const imageUrl = formData.get('imageUrl');
+    const supplierProductId = formData.get('supplierProductId');
+    const supplierVariantId = formData.get('supplierVariantId');
+    const supplierSku = formData.get('supplierSku') || null;
+
+    if (!title || !supplierVariantId) {
+      return json({intent, error: 'Missing product info -- try searching again.'}, {status: 400});
+    }
+
+    const {product, defaultVariantId, errors} = await createShopifyProduct(admin, {
+      title,
+      price,
+      imageUrl,
+    });
+
+    if (!product) {
+      return json({intent, error: errors.join(', ') || 'Could not create the product.'}, {status: 400});
+    }
+
+    await prisma.importedProduct.create({
+      data: {
+        shop: session.shop,
+        shopifyProductId: product.id,
+        sourceType: 'cj-dropshipping',
+      },
+    });
+
+    await prisma.supplierLink.upsert({
+      where: {shop_shopifyVariantId: {shop: session.shop, shopifyVariantId: defaultVariantId}},
+      create: {
+        shop: session.shop,
+        shopifyProductId: product.id,
+        shopifyVariantId: defaultVariantId,
+        provider: 'cj-dropshipping',
+        supplierProductId,
+        supplierVariantId,
+        supplierSku,
+      },
+      update: {
+        provider: 'cj-dropshipping',
+        supplierProductId,
+        supplierVariantId,
+        supplierSku,
+      },
+    });
+
+    return json({
+      intent,
+      ok: true,
+      productTitle: product.title,
+      shopifyVariantId: defaultVariantId,
+      warnings: errors,
+    });
   }
 
   if (intent === 'link') {
@@ -146,6 +210,7 @@ export default function LinkSupplier() {
   const searchFetcher = useFetcher();
   const detailFetcher = useFetcher();
   const linkFetcher = useFetcher();
+  const importFetcher = useFetcher();
 
   const [keyword, setKeyword] = useState('');
   const [selectedCjProduct, setSelectedCjProduct] = useState(null);
@@ -258,9 +323,11 @@ export default function LinkSupplier() {
               {productDetail && (
                 <LinkForm
                   cjProduct={productDetail}
+                  searchImage={selectedCjProduct?.bigImage}
                   shopifyVariants={allShopifyVariants}
                   linkedVariantIds={linkedVariantIds}
                   linkFetcher={linkFetcher}
+                  importFetcher={importFetcher}
                   onLinked={(variantId) =>
                     setLinkedVariantIds((ids) => [...ids, variantId])
                   }
@@ -274,12 +341,16 @@ export default function LinkSupplier() {
   );
 }
 
-function LinkForm({cjProduct, shopifyVariants, linkedVariantIds, linkFetcher, onLinked}) {
+function LinkForm({cjProduct, searchImage, shopifyVariants, linkedVariantIds, linkFetcher, importFetcher, onLinked}) {
   const cjVariants = cjProduct.variants || cjProduct.variantList || [];
   const [cjVariantId, setCjVariantId] = useState(cjVariants[0]?.vid || '');
   const [shopifyVariantId, setShopifyVariantId] = useState('');
 
+  const productTitle = cjProduct.productNameEn || cjProduct.nameEn;
+  const cjVariant = cjVariants.find((v) => v.vid === cjVariantId);
+
   const justLinked = linkFetcher.data?.ok && linkFetcher.data?.shopifyVariantId === shopifyVariantId;
+  const justImported = importFetcher.data?.ok;
 
   // Only mark it linked in the parent's list once the save actually
   // succeeds -- not optimistically on click, which could show "linked"
@@ -291,6 +362,13 @@ function LinkForm({cjProduct, shopifyVariants, linkedVariantIds, linkFetcher, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkFetcher.data]);
 
+  useEffect(() => {
+    if (importFetcher.data?.ok) {
+      onLinked(importFetcher.data.shopifyVariantId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [importFetcher.data]);
+
   return (
     <BlockStack gap="300">
       <Text as="p" fontWeight="semibold">
@@ -298,7 +376,7 @@ function LinkForm({cjProduct, shopifyVariants, linkedVariantIds, linkFetcher, on
             NOT nameEn (that's only the search endpoint's field) -- keeping
             both here since we're calling this with whatever the detail
             fetcher returned. */}
-        {cjProduct.productNameEn || cjProduct.nameEn}
+        {productTitle}
       </Text>
 
       <Select
@@ -311,7 +389,41 @@ function LinkForm({cjProduct, shopifyVariants, linkedVariantIds, linkFetcher, on
         onChange={setCjVariantId}
       />
 
+      <Button
+        variant="primary"
+        disabled={!cjVariantId}
+        loading={importFetcher.state !== 'idle'}
+        onClick={() => {
+          importFetcher.submit(
+            {
+              intent: 'import',
+              title: productTitle || '',
+              price: cjVariant?.variantSellPrice || cjVariant?.price || '',
+              imageUrl: searchImage || '',
+              supplierProductId: cjProduct.pid || cjProduct.id,
+              supplierVariantId: cjVariantId,
+              supplierSku: cjVariant?.variantSku || '',
+            },
+            {method: 'post'},
+          );
+        }}
+      >
+        Import as a new product in my store
+      </Button>
+
+      {justImported && (
+        <Banner tone="success">
+          Imported "{importFetcher.data.productTitle}" as a draft product, linked and ready to auto-fulfill through CJ.
+          {importFetcher.data.warnings?.length > 0 && ` (${importFetcher.data.warnings.join('; ')})`}
+        </Banner>
+      )}
+      {importFetcher.data?.error && <Banner tone="critical">{importFetcher.data.error}</Banner>}
+
       <Divider />
+
+      <Text as="p" tone="subdued">
+        Or link this CJ variant to a product you already have in your store:
+      </Text>
 
       <Select
         label="Your Shopify product/variant"

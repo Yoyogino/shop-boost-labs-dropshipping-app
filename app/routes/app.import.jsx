@@ -14,6 +14,7 @@ import {
 } from '@shopify/polaris';
 import {authenticate} from '../shopify.server';
 import prisma from '../db.server';
+import {createShopifyProduct} from '../shopify-products.server';
 
 // Expected CSV columns: title,price,description,imageUrl
 // This is the safe, legitimate starting point for "import" — no scraping,
@@ -34,48 +35,6 @@ function parseCsv(text) {
   });
 }
 
-// Split into three mutations -- confirmed 2026-08-28 against a live 500 error.
-// `ProductInput.images` and `ProductInput.variants` were removed from
-// Shopify's schema (Shopify moved variant and media creation into their own
-// dedicated bulk mutations); productCreate now only takes title/description/
-// status and always creates one default variant automatically, which is
-// what we set the price on afterward.
-const CREATE_PRODUCT_MUTATION = `#graphql
-  mutation CreateProduct($input: ProductInput!) {
-    productCreate(input: $input) {
-      product {
-        id
-        title
-        variants(first: 1) {
-          edges { node { id } }
-        }
-      }
-      userErrors {
-        field
-        message
-      }
-    }
-  }
-`;
-
-const SET_VARIANT_PRICE_MUTATION = `#graphql
-  mutation SetVariantPrice($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-    productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-      productVariants { id price }
-      userErrors { field message }
-    }
-  }
-`;
-
-const CREATE_MEDIA_MUTATION = `#graphql
-  mutation CreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
-    productCreateMedia(productId: $productId, media: $media) {
-      media { alt mediaContentType status }
-      mediaUserErrors { field message }
-    }
-  }
-`;
-
 export const action = async ({request}) => {
   const {admin, session} = await authenticate.admin(request);
   const formData = await request.formData();
@@ -92,57 +51,19 @@ export const action = async ({request}) => {
   for (const row of rows) {
     if (!row.title) continue;
 
-    const createResponse = await admin.graphql(CREATE_PRODUCT_MUTATION, {
-      variables: {
-        input: {
-          title: row.title,
-          descriptionHtml: row.description || '',
-          status: 'DRAFT',
-        },
-      },
+    const {product, errors: rowErrors} = await createShopifyProduct(admin, {
+      title: row.title,
+      description: row.description,
+      price: row.price,
+      imageUrl: row.imageurl,
     });
-    const createData = await createResponse.json();
-    const createResult = createData.data?.productCreate;
 
-    if (createResult?.userErrors?.length) {
-      errors.push(`${row.title}: ${createResult.userErrors.map((e) => e.message).join(', ')}`);
-      continue;
-    }
-
-    const product = createResult?.product;
     if (!product) {
-      errors.push(`${row.title}: product was not created.`);
+      errors.push(`${row.title}: ${rowErrors.join(', ') || 'product was not created.'}`);
       continue;
     }
 
-    const defaultVariantId = product.variants?.edges?.[0]?.node?.id;
-    if (row.price && defaultVariantId) {
-      const priceResponse = await admin.graphql(SET_VARIANT_PRICE_MUTATION, {
-        variables: {
-          productId: product.id,
-          variants: [{id: defaultVariantId, price: row.price}],
-        },
-      });
-      const priceData = await priceResponse.json();
-      const priceErrors = priceData.data?.productVariantsBulkUpdate?.userErrors;
-      if (priceErrors?.length) {
-        errors.push(`${row.title}: price not set -- ${priceErrors.map((e) => e.message).join(', ')}`);
-      }
-    }
-
-    if (row.imageurl) {
-      const mediaResponse = await admin.graphql(CREATE_MEDIA_MUTATION, {
-        variables: {
-          productId: product.id,
-          media: [{originalSource: row.imageurl, mediaContentType: 'IMAGE'}],
-        },
-      });
-      const mediaData = await mediaResponse.json();
-      const mediaErrors = mediaData.data?.productCreateMedia?.mediaUserErrors;
-      if (mediaErrors?.length) {
-        errors.push(`${row.title}: image not attached -- ${mediaErrors.map((e) => e.message).join(', ')}`);
-      }
-    }
+    rowErrors.forEach((message) => errors.push(`${row.title}: ${message}`));
 
     await prisma.importedProduct.create({
       data: {
