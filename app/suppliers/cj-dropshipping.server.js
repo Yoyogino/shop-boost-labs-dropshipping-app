@@ -111,11 +111,19 @@ async function persistTokens(shop, tokenData) {
 
 // Live product search -- this is what Layer 1 (real catalog data) would
 // call instead of a static idea list.
+//
+// FIXED 2026-08-30: this was silently searching nothing. listV2's real query
+// params are `keyWord` (capital W), `page`, and `size` -- confirmed against
+// CJ's own docs (https://developers.cjdropshipping.cn/en/api/api2/api/product.html).
+// The old code sent `keyword`/`pageNum`/`pageSize`, none of which CJ
+// recognizes, so CJ silently ignored all of them and returned its default
+// (unfiltered/trending) product listing every time -- which is exactly why
+// searching "phone case" was returning completely unrelated products.
 export async function searchProducts(shop, {keyword, pageNum = 1, pageSize = 20} = {}) {
   const accessToken = await getAccessToken(shop);
   const data = await cjFetch('/product/listV2', {
     accessToken,
-    query: {keyword, pageNum, pageSize},
+    query: {keyWord: keyword, page: pageNum, size: pageSize},
   });
   // Confirmed against a real response (2026-08-27): CJ nests the actual
   // products two levels deep -- data.content is an array with ONE element
